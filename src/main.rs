@@ -1,4 +1,5 @@
 use egui::DragValue;
+mod sim;
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
