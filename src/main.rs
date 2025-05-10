@@ -1,4 +1,6 @@
-use egui::DragValue;
+use egui::{CentralPanel, DragValue, Rect, Scene};
+use egui_pixel_editor::ImageEditor;
+use sim::Sim;
 mod sim;
 
 // When compiling natively:
@@ -72,7 +74,11 @@ fn main() {
 }
 
 pub struct TemplateApp {
+    pub sim: Sim,
     pub save_data: SaveData,
+    pub scene_rect: Rect,
+    pub light_editor: ImageEditor<sim::Cell>,
+    pub world_editor: ImageEditor<sim::Environment>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -97,7 +103,15 @@ impl TemplateApp {
             .and_then(|storage| eframe::get_value(storage, eframe::APP_KEY))
             .unwrap_or_default();
 
-        Self { save_data }
+        let sim = Sim::new(200, 100);
+
+        Self {
+            save_data,
+            sim,
+            scene_rect: Rect::ZERO,
+            light_editor: ImageEditor::new(&cc.egui_ctx),
+            world_editor: ImageEditor::new(&cc.egui_ctx),
+        }
     }
 }
 
@@ -109,21 +123,25 @@ impl eframe::App for TemplateApp {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.button("Quit").clicked() {
-                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                    }
-                });
-
-                egui::widgets::global_theme_preference_buttons(ui);
+        CentralPanel::default().show(ctx, |ui| {
+            egui::Frame::canvas(ui.style()).show(ui, |ui| {
+                Scene::new()
+                    .zoom_range(0.1..=100.0)
+                    .show(ui, &mut self.scene_rect, |ui| {
+                        self.world_editor.edit(
+                            ui,
+                            &mut self.sim.env,
+                            sim::Environment::Wall,
+                            egui_pixel_editor::Brush::Rectangle(1, 1),
+                        );
+                        self.light_editor.edit(
+                            ui,
+                            &mut self.sim.light,
+                            sim::Cell { dirs: [1.0; 9] },
+                            egui_pixel_editor::Brush::Rectangle(1, 1),
+                        )
+                    });
             });
-        });
-
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.label("hi world or whatever");
-            ui.add(DragValue::new(&mut self.save_data.example_value).prefix("Example number: "));
         });
     }
 }
