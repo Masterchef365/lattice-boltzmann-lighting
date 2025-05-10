@@ -84,6 +84,7 @@ pub struct BoltzmannApp {
     pub n_step: usize,
     pub env_value: sim::Environment,
     pub run: bool,
+    pub brush_size: isize,
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
@@ -131,6 +132,7 @@ impl BoltzmannApp {
             edit_layer: EditLayer::default(),
             env_value: sim::Environment::Fog(1.0),
             run: false,
+            brush_size: 0,
             //light_editor: ImageEditor::new(&cc.egui_ctx),
             //world_editor: ImageEditor::new(&cc.egui_ctx),
         }
@@ -158,6 +160,8 @@ impl eframe::App for BoltzmannApp {
             );
             ui.selectable_value(&mut self.edit_layer, EditLayer::Light, "Light");
             ui.selectable_value(&mut self.edit_layer, EditLayer::Environment, "Environment");
+
+            ui.add(DragValue::new(&mut self.brush_size).prefix("Brush size: ").range(0..=isize::MAX));
 
             if self.edit_layer == EditLayer::Environment {
                 match &mut self.env_value {
@@ -194,6 +198,8 @@ impl eframe::App for BoltzmannApp {
             }
         });
 
+        let brush = Brush::Rectangle(self.brush_size, self.brush_size);
+
         CentralPanel::default().show(ctx, |ui| {
             egui::Frame::canvas(ui.style()).show(ui, |ui| {
                 Scene::new().zoom_range(0.1..=100.0).show(
@@ -205,7 +211,7 @@ impl eframe::App for BoltzmannApp {
                                 ui,
                                 &mut self.sim.light,
                                 sim::Cell { dirs: [1.0; 9] },
-                                Brush::default(),
+                                brush,
                             );
                             self.env_editor.draw(ui, &mut self.sim.env, Pos2::ZERO);
                         }
@@ -217,7 +223,7 @@ impl eframe::App for BoltzmannApp {
                                 sim::Cell {
                                     dirs: [1., 0., 0., 0., 0., 0., 0., 0., 0.],
                                 },
-                                Brush::default(),
+                                brush,
                             );
                             self.env_editor.draw(ui, &mut self.sim.env, Pos2::ZERO);
                         }
@@ -227,7 +233,7 @@ impl eframe::App for BoltzmannApp {
                                 ui,
                                 &mut self.sim.env,
                                 self.env_value,
-                                Brush::default(),
+                                brush,
                             );
                         }
                     },
