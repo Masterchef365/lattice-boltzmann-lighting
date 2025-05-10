@@ -83,6 +83,7 @@ pub struct BoltzmannApp {
     pub edit_layer: EditLayer,
     pub n_step: usize,
     pub env_value: sim::Environment,
+    pub run: bool,
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
@@ -129,6 +130,7 @@ impl BoltzmannApp {
             env_editor: ImageEditor::from_tile_size(tile_texture_width),
             edit_layer: EditLayer::default(),
             env_value: sim::Environment::Fog(1.0),
+            run: false,
             //light_editor: ImageEditor::new(&cc.egui_ctx),
             //world_editor: ImageEditor::new(&cc.egui_ctx),
         }
@@ -143,6 +145,10 @@ impl eframe::App for BoltzmannApp {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if self.run {
+            ctx.request_repaint();
+        }
+
         CentralPanel::default().show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.label("Editing layer: ");
@@ -165,15 +171,31 @@ impl eframe::App for BoltzmannApp {
                 }
             }
 
+            let mut do_step = self.run;
             ui.horizontal(|ui| {
                 if ui.button(RichText::new("Step").size(20.)).clicked() {
-                    for _ in 0..self.n_step {
-                        self.sim.step();
-                    }
-                    self.light_editor.force_image_update();
+                    do_step = true;
                 }
-                ui.add(DragValue::new(&mut self.n_step))
+                ui.add(DragValue::new(&mut self.n_step));
+                let text = if self.run {
+                    "Pause ||"
+                } else {
+                    "Run >"
+                };
+                if ui.button(RichText::new(text).size(20.)).clicked() {
+                    self.run = !self.run;
+                }
+                if ui.button(RichText::new("Reset").size(20.)).clicked() {
+                    self.sim = Sim::new(200, 100);
+                }
             });
+
+            if do_step {
+                for _ in 0..self.n_step {
+                    self.sim.step();
+                }
+                self.light_editor.force_image_update();
+            }
 
             egui::Frame::canvas(ui.style()).show(ui, |ui| {
                 Scene::new().zoom_range(0.1..=100.0).show(
