@@ -42,11 +42,11 @@ impl Sim {
     pub fn step(&mut self) {
         // Distribute density locally
         // according to the collision rules
-        for src in &mut self.light {
+        for (src, env) in self.light.iter_mut().zip(&self.env) {
             let mut new_dense = [0_f32; 9];
             for in_idx in 0..9 {
                 for out_idx in 0..9 {
-                    new_dense[out_idx] += src.dirs[in_idx] * Θ(in_idx, out_idx);
+                    new_dense[out_idx] += src.dirs[in_idx] * Θ(in_idx, out_idx, env);
                 }
             }
 
@@ -121,9 +121,19 @@ impl PixelInterface for Cell {
     }
 }
 
-fn Θ(in_idx: usize, out_idx: usize) -> f32 {
-    let scattering_coeff = 0.0;
-    let absorbtion_coeff = 0.0;
+fn Θ(in_idx: usize, out_idx: usize, env: &Environment) -> f32 {
+    let scattering_coeff;
+    let absorbtion_coeff;
+    match env {
+        Environment::Wall => {
+            scattering_coeff = 1.0;
+            absorbtion_coeff = 0.0;
+        },
+        Environment::Fog(val) => {
+            scattering_coeff = 0.05;
+            absorbtion_coeff = *val;
+        },
+    }
     let extinction_coeff = absorbtion_coeff + scattering_coeff;
 
     const CENTER_IDX: usize = 4;
