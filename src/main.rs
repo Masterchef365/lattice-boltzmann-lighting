@@ -145,6 +145,7 @@ impl eframe::App for BoltzmannApp {
 
             if ui.button(RichText::new("Step").size(20.)).clicked() {
                 self.sim.step();
+                self.light_editor.force_image_update();
             }
 
             egui::Frame::canvas(ui.style()).show(ui, |ui| {
