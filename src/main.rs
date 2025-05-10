@@ -210,6 +210,7 @@ impl eframe::App for BoltzmannApp {
                             self.env_editor.draw(ui, &mut self.sim.env, Pos2::ZERO);
                         }
                         EditLayer::LightSource => {
+                            self.light_editor.draw(ui, &mut self.sim.light, Pos2::ZERO);
                             self.light_source_editor.edit(
                                 ui,
                                 &mut self.sim.light_source,

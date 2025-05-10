@@ -134,7 +134,7 @@ impl PixelInterface for Environment {
 
 impl PixelInterface for Cell {
     fn as_rgba(&self) -> egui::Color32 {
-        egui::Color32::from_gray((self.dirs.iter().sum::<f32>() * 255.0).clamp(0.0, 255.0) as u8)
+        egui::Color32::from_gray((self.dirs.iter().sum::<f32>() * 255.0).clamp(0.0, 255.0) as u8).additive()
     }
 }
 
@@ -147,7 +147,7 @@ fn Θ(in_idx: usize, out_idx: usize, env: &Environment) -> f32 {
             absorbtion_coeff = 0.0;
         }
         Environment::Fog(val) => {
-            scattering_coeff = *val;
+            scattering_coeff = *val * 2.0;
             absorbtion_coeff = 0.0;
         }
     }
