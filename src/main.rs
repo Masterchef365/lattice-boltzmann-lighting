@@ -83,6 +83,7 @@ pub struct BoltzmannApp {
     pub edit_layer: EditLayer,
     pub n_step: usize,
     pub env_value: sim::Environment,
+    pub cell_value: sim::Cell,
     pub run: bool,
     pub brush_size: isize,
 }
@@ -130,7 +131,13 @@ impl BoltzmannApp {
             light_editor: ImageEditor::from_tile_size(tile_texture_width),
             env_editor: ImageEditor::from_tile_size(tile_texture_width),
             edit_layer: EditLayer::default(),
-            env_value: sim::Environment::Fog(1.0),
+            env_value: sim::Environment {
+                scattering: 1.0,
+                absorbtion: 0.0,
+            },
+            cell_value: sim::Cell {
+                  dirs: [0., 0., 0., 0., 1., 0., 0., 0., 0.]  
+            },
             run: false,
             brush_size: 0,
             //light_editor: ImageEditor::new(&cc.egui_ctx),
@@ -163,13 +170,21 @@ impl eframe::App for BoltzmannApp {
 
             ui.add(DragValue::new(&mut self.brush_size).prefix("Brush size: ").range(0..=isize::MAX));
 
-            if self.edit_layer == EditLayer::Environment {
-                match &mut self.env_value {
-                    sim::Environment::Wall => {}
-                    sim::Environment::Fog(val) => {
-                        ui.add(DragValue::new(val).prefix("Scattering: ").speed(1e-2));
-                    }
-                }
+            match self.edit_layer {
+                EditLayer::Environment => {
+                    ui.add(DragValue::new(&mut self.env_value.scattering).prefix("Scattering: ").speed(1e-2));
+                    ui.add(DragValue::new(&mut self.env_value.absorbtion).prefix("Absorbtion: ").speed(1e-2));
+                },
+                EditLayer::Light | EditLayer::LightSource => {
+                    egui::Grid::new("light").num_columns(3).show(ui, |ui| {
+                        for row in self.cell_value.dirs.chunks_exact_mut(3) {
+                            for value in row.iter_mut() {
+                                ui.add(DragValue::new(value));
+                            }
+                            ui.end_row();
+                        }
+                    });
+                },
             }
 
             let mut do_step = self.run;
@@ -210,7 +225,7 @@ impl eframe::App for BoltzmannApp {
                             self.light_editor.edit(
                                 ui,
                                 &mut self.sim.light,
-                                sim::Cell { dirs: [1.0; 9] },
+                                self.cell_value,
                                 brush,
                             );
                             self.env_editor.draw(ui, &mut self.sim.env, Pos2::ZERO);
@@ -220,9 +235,7 @@ impl eframe::App for BoltzmannApp {
                             self.light_source_editor.edit(
                                 ui,
                                 &mut self.sim.light_source,
-                                sim::Cell {
-                                    dirs: [1., 0., 0., 0., 0., 0., 0., 0., 0.],
-                                },
+                                self.cell_value,
                                 brush,
                             );
                             self.env_editor.draw(ui, &mut self.sim.env, Pos2::ZERO);

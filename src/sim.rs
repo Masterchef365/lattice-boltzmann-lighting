@@ -1,3 +1,4 @@
+use egui::Color32;
 use egui_pixel_editor::image::PixelInterface;
 use ndarray::Array2;
 
@@ -8,9 +9,9 @@ pub struct Sim {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Environment {
-    Wall,
-    Fog(f32),
+pub struct Environment {
+    pub scattering: f32,
+    pub absorbtion: f32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
@@ -26,13 +27,21 @@ impl Sim {
     pub fn new(width: usize, height: usize) -> Self {
         let light_source = Array2::from_elem((width, height), Cell::default());
         let mut light = Array2::from_elem((width, height), Cell::default());
-        let mut env = Array2::from_elem((width, height), Environment::Fog(0.0));
+        let air = Environment {
+            scattering: 0.001,
+            absorbtion: 0.0,
+        };
+        let mut env = Array2::from_elem((width, height), air);
+        let wall = Environment {
+            scattering: 1.0,
+            absorbtion: 0.0,
+        };
         env.slice_mut(ndarray::s![.., height - 1])
-            .fill(Environment::Wall);
+            .fill(wall);
         env.slice_mut(ndarray::s![width - 1, ..])
-            .fill(Environment::Wall);
-        env.slice_mut(ndarray::s![.., 0]).fill(Environment::Wall);
-        env.slice_mut(ndarray::s![0, ..]).fill(Environment::Wall);
+            .fill(wall);
+        env.slice_mut(ndarray::s![.., 0]).fill(wall);
+        env.slice_mut(ndarray::s![0, ..]).fill(wall);
 
         light
             .slice_mut(ndarray::s![50..=70, 50..=70])
@@ -94,13 +103,15 @@ fn compute_neighbor(
 ) -> Option<(usize, usize)> {
     const OFFSETS: [(isize, isize); 9] = [
         (-1, -1),
-        (-1, 0),
-        (-1, 1),
         (0, -1),
-        (0, 0),
-        (0, 1),
         (1, -1),
+
+        (-1, 0),
+        (0, 0),
         (1, 0),
+
+        (-1, 1),
+        (0, 1),
         (1, 1),
     ];
     let (width, height) = arr.dim();
@@ -125,10 +136,9 @@ fn compute_neighbor(
 
 impl PixelInterface for Environment {
     fn as_rgba(&self) -> egui::Color32 {
-        match self {
-            Self::Wall => egui::Color32::RED,
-            Self::Fog(fog) => egui::Color32::TRANSPARENT.lerp_to_gamma(egui::Color32::CYAN, *fog)
-        }
+            let scattering_only = Color32::TRANSPARENT.lerp_to_gamma(Color32::CYAN, self.scattering);
+            let scattering_and_absorbtion = Color32::RED.lerp_to_gamma(Color32::CYAN, self.scattering);
+            scattering_only.lerp_to_gamma(scattering_and_absorbtion, self.absorbtion)
     }
 }
 
@@ -139,19 +149,7 @@ impl PixelInterface for Cell {
 }
 
 fn Θ(in_idx: usize, out_idx: usize, env: &Environment) -> f32 {
-    let scattering_coeff;
-    let absorbtion_coeff;
-    match env {
-        Environment::Wall => {
-            scattering_coeff = 1.0;
-            absorbtion_coeff = 0.0;
-        }
-        Environment::Fog(val) => {
-            scattering_coeff = *val * 2.0;
-            absorbtion_coeff = 0.0;
-        }
-    }
-    let extinction_coeff = absorbtion_coeff + scattering_coeff;
+    let extinction_coeff = env.absorbtion + env.scattering;
 
     const CENTER_IDX: usize = 4;
     const IS_AXIAL: [bool; 9] = [
@@ -164,7 +162,7 @@ fn Θ(in_idx: usize, out_idx: usize, env: &Environment) -> f32 {
         return if out_idx == CENTER_IDX {
             0.0
         } else {
-            absorbtion_coeff
+            env.absorbtion
         };
     }
 
@@ -172,17 +170,17 @@ fn Θ(in_idx: usize, out_idx: usize, env: &Environment) -> f32 {
         if out_idx == CENTER_IDX {
             1.0 / 8.0
         } else if out_idx != in_idx {
-            scattering_coeff / 8.0
+            env.scattering / 8.0
         } else {
-            1.0 - extinction_coeff + scattering_coeff / 8.0
+            1.0 - extinction_coeff + env.scattering / 8.0
         }
     } else {
         if out_idx == CENTER_IDX {
             1.0 / 16.0
         } else if out_idx != in_idx {
-            scattering_coeff / 16.0
+            env.scattering / 16.0
         } else {
-            1.0 - extinction_coeff + scattering_coeff / 16.0
+            1.0 - extinction_coeff + env.scattering / 16.0
         }
     }
 }
