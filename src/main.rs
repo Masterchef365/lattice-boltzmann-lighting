@@ -77,14 +77,17 @@ pub struct BoltzmannApp {
     pub sim: Sim,
     pub save_data: SaveData,
     pub scene_rect: Rect,
+    pub light_source_editor: ImageEditor<sim::Cell>,
     pub light_editor: ImageEditor<sim::Cell>,
     pub env_editor: ImageEditor<sim::Environment>,
     pub edit_layer: EditLayer,
+    pub n_step: usize,
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
 enum EditLayer {
-    Cell,
+    LightSource,
+    Light,
     #[default]
     Environment,
 }
@@ -116,9 +119,11 @@ impl BoltzmannApp {
         let tile_texture_width = 512;
 
         Self {
+            n_step: 1,
             save_data,
             sim,
             scene_rect: Rect::ZERO,
+            light_source_editor: ImageEditor::from_tile_size(tile_texture_width),
             light_editor: ImageEditor::from_tile_size(tile_texture_width),
             env_editor: ImageEditor::from_tile_size(tile_texture_width),
             edit_layer: EditLayer::default(),
@@ -139,42 +144,61 @@ impl eframe::App for BoltzmannApp {
         CentralPanel::default().show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.label("Editing layer: ");
-                ui.selectable_value(&mut self.edit_layer, EditLayer::Cell, "Cells");
+                ui.selectable_value(
+                    &mut self.edit_layer,
+                    EditLayer::LightSource,
+                    "Light Sources",
+                );
+                ui.selectable_value(&mut self.edit_layer, EditLayer::Light, "Light");
                 ui.selectable_value(&mut self.edit_layer, EditLayer::Environment, "Environment");
             });
 
-            if ui.button(RichText::new("Step").size(20.)).clicked() {
-                self.sim.step();
-                self.light_editor.force_image_update();
-            }
+            ui.horizontal(|ui| {
+                if ui.button(RichText::new("Step").size(20.)).clicked() {
+                    for _ in 0..self.n_step {
+                        self.sim.step();
+                    }
+                    self.light_editor.force_image_update();
+                }
+                ui.add(DragValue::new(&mut self.n_step))
+            });
 
             egui::Frame::canvas(ui.style()).show(ui, |ui| {
-                Scene::new()
-                    .zoom_range(0.1..=100.0)
-                    .show(ui, &mut self.scene_rect, |ui| {
-
-                        match self.edit_layer {
-                            EditLayer::Cell => {
-                                self.light_editor.edit(
-                                    ui,
-                                    &mut self.sim.light,
-                                    sim::Cell { dirs: [1.0; 9] },
-                                    Brush::default(),
-                                );
-                                self.env_editor.draw(ui, &mut self.sim.env, Pos2::ZERO);
-                            }
-                            EditLayer::Environment => {
-                                self.light_editor.draw(ui, &mut self.sim.light, Pos2::ZERO);
-                                self.env_editor.edit(
-                                    ui,
-                                    &mut self.sim.env,
-                                    sim::Environment::Wall,
-                                    Brush::default(),
-                                );
-                            }
+                Scene::new().zoom_range(0.1..=100.0).show(
+                    ui,
+                    &mut self.scene_rect,
+                    |ui| match self.edit_layer {
+                        EditLayer::Light => {
+                            self.light_editor.edit(
+                                ui,
+                                &mut self.sim.light,
+                                sim::Cell { dirs: [1.0; 9] },
+                                Brush::default(),
+                            );
+                            self.env_editor.draw(ui, &mut self.sim.env, Pos2::ZERO);
                         }
-
-                    });
+                        EditLayer::LightSource => {
+                            self.light_source_editor.edit(
+                                ui,
+                                &mut self.sim.light_source,
+                                sim::Cell {
+                                    dirs: [1., 0., 0., 0., 0., 0., 0., 0., 0.],
+                                },
+                                Brush::default(),
+                            );
+                            self.env_editor.draw(ui, &mut self.sim.env, Pos2::ZERO);
+                        }
+                        EditLayer::Environment => {
+                            self.light_editor.draw(ui, &mut self.sim.light, Pos2::ZERO);
+                            self.env_editor.edit(
+                                ui,
+                                &mut self.sim.env,
+                                sim::Environment::Wall,
+                                Brush::default(),
+                            );
+                        }
+                    },
+                );
             });
         });
     }

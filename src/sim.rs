@@ -3,6 +3,7 @@ use ndarray::Array2;
 
 pub struct Sim {
     pub light: Array2<Cell>,
+    pub light_source: Array2<Cell>,
     pub env: Array2<Environment>,
 }
 
@@ -23,6 +24,7 @@ pub struct Cell {
 /// Implemented here by Y.T.
 impl Sim {
     pub fn new(width: usize, height: usize) -> Self {
+        let light_source = Array2::from_elem((width, height), Cell::default());
         let mut light = Array2::from_elem((width, height), Cell::default());
         let mut env = Array2::from_elem((width, height), Environment::Fog(1.0));
         env.slice_mut(ndarray::s![.., height - 1])
@@ -36,10 +38,25 @@ impl Sim {
             .slice_mut(ndarray::s![50..=70, 50..=70])
             .fill(Cell { dirs: [1.0; 9] });
 
-        Self { light, env }
+        Self {
+            light,
+            env,
+            light_source,
+        }
     }
 
     pub fn step(&mut self) {
+        // Add light sources
+        self.light
+            .iter_mut()
+            .zip(&self.light_source)
+            .for_each(|(l, src)| {
+                l.dirs
+                    .iter_mut()
+                    .zip(src.dirs)
+                    .for_each(|(l, src)| *l += src);
+            });
+
         // Distribute density locally
         // according to the collision rules
         for (src, env) in self.light.iter_mut().zip(&self.env) {
@@ -128,11 +145,11 @@ fn Θ(in_idx: usize, out_idx: usize, env: &Environment) -> f32 {
         Environment::Wall => {
             scattering_coeff = 1.0;
             absorbtion_coeff = 0.0;
-        },
+        }
         Environment::Fog(val) => {
-            scattering_coeff = 0.05;
-            absorbtion_coeff = *val;
-        },
+            scattering_coeff = *val;
+            absorbtion_coeff = 0.0;
+        }
     }
     let extinction_coeff = absorbtion_coeff + scattering_coeff;
 
@@ -149,7 +166,7 @@ fn Θ(in_idx: usize, out_idx: usize, env: &Environment) -> f32 {
         } else {
             absorbtion_coeff
         };
-    } 
+    }
 
     if IS_AXIAL[in_idx] {
         if out_idx == CENTER_IDX {
