@@ -1,4 +1,4 @@
-use egui::{CentralPanel, DragValue, Pos2, Rect, RichText, Scene, SidePanel};
+use egui::{CentralPanel, DragValue, Pos2, Rect, RichText, Scene, SidePanel, TopBottomPanel};
 use egui_pixel_editor::{Brush, ImageEditor};
 use sim::Sim;
 mod sim;
@@ -136,7 +136,7 @@ impl BoltzmannApp {
                 absorbtion: 0.0,
             },
             cell_value: sim::Cell {
-                  dirs: [0., 0., 0., 0., 1., 0., 0., 0., 0.]  
+                dirs: [0., 0., 0., 0., 1., 0., 0., 0., 0.],
             },
             run: false,
             brush_size: 0,
@@ -159,58 +159,89 @@ impl eframe::App for BoltzmannApp {
         }
 
         SidePanel::left("cfg").show(ctx, |ui| {
-            ui.label("Editing layer: ");
-            ui.selectable_value(
-                &mut self.edit_layer,
-                EditLayer::LightSource,
-                "Light Sources",
-            );
-            ui.selectable_value(&mut self.edit_layer, EditLayer::Light, "Light");
-            ui.selectable_value(&mut self.edit_layer, EditLayer::Environment, "Environment");
-
-            ui.add(DragValue::new(&mut self.brush_size).prefix("Brush size: ").range(0..=isize::MAX));
-
-            match self.edit_layer {
-                EditLayer::Environment => {
-                    ui.add(DragValue::new(&mut self.env_value.scattering).prefix("Scattering: ").speed(1e-2));
-                    ui.add(DragValue::new(&mut self.env_value.absorbtion).prefix("Absorbtion: ").speed(1e-2));
-                },
-                EditLayer::Light | EditLayer::LightSource => {
-                    egui::Grid::new("light").num_columns(3).show(ui, |ui| {
-                        for row in self.cell_value.dirs.chunks_exact_mut(3) {
-                            for value in row.iter_mut() {
-                                ui.add(DragValue::new(value));
-                            }
-                            ui.end_row();
-                        }
-                    });
-                },
-            }
-
-            let mut do_step = self.run;
-            ui.horizontal(|ui| {
-                if ui.button(RichText::new("Step").size(20.)).clicked() {
-                    do_step = true;
-                }
-                ui.add(DragValue::new(&mut self.n_step));
+            ui.heading("Drawing");
+            ui.group(|ui| {
+                ui.strong("Current layer: ");
+                ui.selectable_value(
+                    &mut self.edit_layer,
+                    EditLayer::LightSource,
+                    "Light Sources",
+                );
+                ui.selectable_value(&mut self.edit_layer, EditLayer::Light, "Light");
+                ui.selectable_value(&mut self.edit_layer, EditLayer::Environment, "Environment");
             });
-            let text = if self.run { "Pause ||" } else { "Run >" };
-            if ui.button(RichText::new(text).size(20.)).clicked() {
-                self.run = !self.run;
-            }
-            if ui.button(RichText::new("Reset").size(20.)).clicked() {
-                self.sim = Sim::new(200, 100);
-                self.light_source_editor.force_image_update();
-                self.env_editor.force_image_update();
-                self.light_editor.force_image_update();
-            }
 
-            if do_step {
-                for _ in 0..self.n_step {
-                    self.sim.step();
+            ui.group(|ui| {
+                ui.strong("Brush");
+                ui.add(
+                    DragValue::new(&mut self.brush_size)
+                        .prefix("Brush size: ")
+                        .range(0..=isize::MAX),
+                );
+
+                match self.edit_layer {
+                    EditLayer::Environment => {
+                        ui.add(
+                            DragValue::new(&mut self.env_value.scattering)
+                                .prefix("Scattering: ")
+                                .speed(1e-2),
+                        );
+                        ui.add(
+                            DragValue::new(&mut self.env_value.absorbtion)
+                                .prefix("Absorbtion: ")
+                                .speed(1e-2),
+                        );
+                    }
+                    EditLayer::Light | EditLayer::LightSource => {
+                        egui::Grid::new("light").num_columns(3).show(ui, |ui| {
+                            for row in self.cell_value.dirs.chunks_exact_mut(3) {
+                                for value in row.iter_mut() {
+                                    ui.add(DragValue::new(value));
+                                }
+                                ui.end_row();
+                            }
+                        });
+                    }
                 }
-                self.light_editor.force_image_update();
-            }
+            });
+        });
+
+        TopBottomPanel::bottom("Time").show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                let mut do_step = self.run;
+                
+                let text = if self.run { "Pause ⏸" } else { "Run ▶" };
+                if ui.button(RichText::new(text).size(20.)).clicked() {
+                    self.run = !self.run;
+                }
+
+                if ui.button(RichText::new("Reset light").size(20.)).clicked() {
+                    self.sim.light.fill(sim::Cell::default());
+                }
+
+                ui.horizontal(|ui| {
+                    if ui.button(RichText::new("Step").size(20.)).clicked() {
+                        do_step = true;
+                    }
+                    //ui.add(DragValue::new(&mut self.n_step));
+                });
+                if ui
+                    .button(RichText::new("Reset everything").size(20.))
+                    .clicked()
+                {
+                    self.sim = Sim::new(200, 100);
+                    self.light_source_editor.force_image_update();
+                    self.env_editor.force_image_update();
+                    self.light_editor.force_image_update();
+                }
+
+                if do_step {
+                    for _ in 0..self.n_step {
+                        self.sim.step();
+                    }
+                    self.light_editor.force_image_update();
+                }
+            });
         });
 
         let brush = Brush::Rectangle(self.brush_size, self.brush_size);
@@ -222,12 +253,8 @@ impl eframe::App for BoltzmannApp {
                     &mut self.scene_rect,
                     |ui| match self.edit_layer {
                         EditLayer::Light => {
-                            self.light_editor.edit(
-                                ui,
-                                &mut self.sim.light,
-                                self.cell_value,
-                                brush,
-                            );
+                            self.light_editor
+                                .edit(ui, &mut self.sim.light, self.cell_value, brush);
                             self.env_editor.draw(ui, &mut self.sim.env, Pos2::ZERO);
                         }
                         EditLayer::LightSource => {
@@ -242,12 +269,8 @@ impl eframe::App for BoltzmannApp {
                         }
                         EditLayer::Environment => {
                             self.light_editor.draw(ui, &mut self.sim.light, Pos2::ZERO);
-                            self.env_editor.edit(
-                                ui,
-                                &mut self.sim.env,
-                                self.env_value,
-                                brush,
-                            );
+                            self.env_editor
+                                .edit(ui, &mut self.sim.env, self.env_value, brush);
                         }
                     },
                 );
