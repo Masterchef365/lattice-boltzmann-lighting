@@ -105,12 +105,16 @@ impl TemplateApp {
 
         let sim = Sim::new(200, 100);
 
+        let tile_texture_width = 512;
+
         Self {
             save_data,
             sim,
             scene_rect: Rect::ZERO,
-            light_editor: ImageEditor::new(&cc.egui_ctx),
-            world_editor: ImageEditor::new(&cc.egui_ctx),
+            light_editor: ImageEditor::from_tile_size(tile_texture_width),
+            world_editor: ImageEditor::from_tile_size(tile_texture_width),
+            //light_editor: ImageEditor::new(&cc.egui_ctx),
+            //world_editor: ImageEditor::new(&cc.egui_ctx),
         }
     }
 }
