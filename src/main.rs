@@ -1,5 +1,5 @@
-use egui::{CentralPanel, DragValue, Rect, Scene};
-use egui_pixel_editor::ImageEditor;
+use egui::{CentralPanel, DragValue, Pos2, Rect, Scene};
+use egui_pixel_editor::{Brush, ImageEditor};
 use sim::Sim;
 mod sim;
 
@@ -22,7 +22,7 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "eframe template",
         native_options,
-        Box::new(|cc| Ok(Box::new(TemplateApp::new(cc)))),
+        Box::new(|cc| Ok(Box::new(BoltzmannApp::new(cc)))),
     )
 }
 
@@ -52,7 +52,7 @@ fn main() {
             .start(
                 canvas,
                 web_options,
-                Box::new(|cc| Ok(Box::new(TemplateApp::new(cc)))),
+                Box::new(|cc| Ok(Box::new(BoltzmannApp::new(cc)))),
             )
             .await;
 
@@ -73,12 +73,20 @@ fn main() {
     });
 }
 
-pub struct TemplateApp {
+pub struct BoltzmannApp {
     pub sim: Sim,
     pub save_data: SaveData,
     pub scene_rect: Rect,
     pub light_editor: ImageEditor<sim::Cell>,
-    pub world_editor: ImageEditor<sim::Environment>,
+    pub env_editor: ImageEditor<sim::Environment>,
+    pub edit_layer: EditLayer,
+}
+
+#[derive(Default, Clone, Copy, PartialEq, Eq)]
+enum EditLayer {
+    Cell,
+    #[default]
+    Environment,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -96,7 +104,7 @@ impl Default for SaveData {
     }
 }
 
-impl TemplateApp {
+impl BoltzmannApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let save_data = cc
             .storage
@@ -112,14 +120,15 @@ impl TemplateApp {
             sim,
             scene_rect: Rect::ZERO,
             light_editor: ImageEditor::from_tile_size(tile_texture_width),
-            world_editor: ImageEditor::from_tile_size(tile_texture_width),
+            env_editor: ImageEditor::from_tile_size(tile_texture_width),
+            edit_layer: EditLayer::default(),
             //light_editor: ImageEditor::new(&cc.egui_ctx),
             //world_editor: ImageEditor::new(&cc.egui_ctx),
         }
     }
 }
 
-impl eframe::App for TemplateApp {
+impl eframe::App for BoltzmannApp {
     /// Called by the frame work to save state before shutdown.
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, &self.save_data);
@@ -128,22 +137,38 @@ impl eframe::App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         CentralPanel::default().show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.label("Editing layer: ");
+                ui.selectable_value(&mut self.edit_layer, EditLayer::Cell, "Cells");
+                ui.selectable_value(&mut self.edit_layer, EditLayer::Environment, "Environment");
+            });
+
             egui::Frame::canvas(ui.style()).show(ui, |ui| {
                 Scene::new()
                     .zoom_range(0.1..=100.0)
                     .show(ui, &mut self.scene_rect, |ui| {
-                        self.world_editor.edit(
-                            ui,
-                            &mut self.sim.env,
-                            sim::Environment::Wall,
-                            egui_pixel_editor::Brush::Rectangle(1, 1),
-                        );
-                        self.light_editor.edit(
-                            ui,
-                            &mut self.sim.light,
-                            sim::Cell { dirs: [1.0; 9] },
-                            egui_pixel_editor::Brush::Rectangle(1, 1),
-                        )
+
+                        match self.edit_layer {
+                            EditLayer::Cell => {
+                                self.light_editor.edit(
+                                    ui,
+                                    &mut self.sim.light,
+                                    sim::Cell { dirs: [1.0; 9] },
+                                    Brush::default(),
+                                );
+                                self.env_editor.draw(ui, &mut self.sim.env, Pos2::ZERO);
+                            }
+                            EditLayer::Environment => {
+                                self.light_editor.draw(ui, &mut self.sim.light, Pos2::ZERO);
+                                self.env_editor.edit(
+                                    ui,
+                                    &mut self.sim.env,
+                                    sim::Environment::Wall,
+                                    Brush::default(),
+                                );
+                            }
+                        }
+
                     });
             });
         });

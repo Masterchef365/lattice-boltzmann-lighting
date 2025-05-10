@@ -20,12 +20,14 @@ pub struct Cell {
 
 impl Sim {
     pub fn new(width: usize, height: usize) -> Self {
-        let light = Array2::from_elem((width, height), Cell::default());
+        let mut light = Array2::from_elem((width, height), Cell::default());
         let mut env = Array2::from_elem((width, height), Environment::Fog(1.0));
         env.slice_mut(ndarray::s![.., height - 1]).fill(Environment::Wall);
         env.slice_mut(ndarray::s![width - 1, ..]).fill(Environment::Wall);
         env.slice_mut(ndarray::s![.., 0]).fill(Environment::Wall);
         env.slice_mut(ndarray::s![0, ..]).fill(Environment::Wall);
+
+        light.slice_mut(ndarray::s![50..=70, 50..=70]).fill(Cell { dirs: [1.0; 9] });
 
         Self {
             light,
@@ -37,7 +39,7 @@ impl Sim {
 impl PixelInterface for Environment {
     fn as_rgba(&self) -> egui::Color32 {
         match self {
-            Self::Wall => egui::Color32::BLACK,
+            Self::Wall => egui::Color32::RED,
             Self::Fog(_) => egui::Color32::TRANSPARENT,
         }
     }
