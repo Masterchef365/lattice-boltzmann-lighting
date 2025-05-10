@@ -86,13 +86,14 @@ pub struct BoltzmannApp {
     pub cell_value: sim::Cell,
     pub run: bool,
     pub brush_size: isize,
+    pub new_sim_dims: (usize, usize),
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
 enum EditLayer {
     LightSource,
-    Light,
     #[default]
+    Light,
     Environment,
 }
 
@@ -118,11 +119,13 @@ impl BoltzmannApp {
             .and_then(|storage| eframe::get_value(storage, eframe::APP_KEY))
             .unwrap_or_default();
 
-        let sim = Sim::new(200, 100);
+        let new_sim_dims@(w, h) = (200, 100);
+        let sim = Sim::new(w, h);
 
         let tile_texture_width = 512;
 
         Self {
+            new_sim_dims,
             n_step: 1,
             save_data,
             sim,
@@ -204,6 +207,12 @@ impl eframe::App for BoltzmannApp {
                     }
                 }
             });
+
+            ui.group(|ui| {
+                ui.strong("Reset settings");
+                ui.add(DragValue::new(&mut self.new_sim_dims.0).prefix("Width: "));
+                ui.add(DragValue::new(&mut self.new_sim_dims.1).prefix("Height: "));
+            });
         });
 
         TopBottomPanel::bottom("Time").show(ctx, |ui| {
@@ -229,7 +238,8 @@ impl eframe::App for BoltzmannApp {
                     .button(RichText::new("Reset everything").size(20.))
                     .clicked()
                 {
-                    self.sim = Sim::new(200, 100);
+                    let (w, h) = self.new_sim_dims;
+                    self.sim = Sim::new(w, h);
                     self.light_source_editor.force_image_update();
                     self.env_editor.force_image_update();
                     self.light_editor.force_image_update();
