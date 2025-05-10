@@ -136,7 +136,7 @@ impl BoltzmannApp {
                 absorbtion: 0.0,
             },
             cell_value: sim::Cell {
-                dirs: [0., 0., 0., 0., 1., 0., 0., 0., 0.],
+                dirs: [1., 0., 0., 0., 0., 0., 0., 0., 0.],
             },
             run: true,
             brush_size: 0,
