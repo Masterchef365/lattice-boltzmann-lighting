@@ -18,6 +18,10 @@ pub struct Cell {
     pub dirs: [f32; 9],
 }
 
+/// Lattice-Boltzmann Lighting
+/// Robert Geist, Karl Rasche, James Westall and Robert Schalkoff
+///
+/// Implemented here by Y.T.
 impl Sim {
     pub fn new(width: usize, height: usize) -> Self {
         let mut light = Array2::from_elem((width, height), Cell::default());
@@ -34,6 +38,71 @@ impl Sim {
             env,
         }
     }
+
+    pub fn step(&mut self) {
+        // Distribute density locally
+        // according to the collision rules
+        for src in &mut self.light {
+            let mut new_dense = [0_f32; 9];
+            for in_idx in 0..9 {
+                for out_idx in 0..9 {
+                    new_dense[out_idx] += src.dirs[in_idx]*Θ(in_idx, out_idx);
+                }
+            }
+
+            src.dirs = new_dense;
+        }
+
+        let mut dst = Array2::from_elem(self.light.dim(), Cell::default());
+
+        // Now flow density to neighbors
+        for (coord, src) in self.light.indexed_iter() {
+            for in_idx in 0..9 {
+                // Compute the index of the
+                // node at i in the in direction
+                if let Some(neigh) = compute_neighbor(coord, in_idx, &self.light) {
+                    dst[neigh].dirs[in_idx] = src.dirs[in_idx];
+                }
+            }
+        }
+
+        self.light = dst;
+    }
+}
+
+fn compute_neighbor((x, y): (usize, usize), in_idx: usize, arr: &Array2<Cell>) -> Option<(usize, usize)> {
+    const OFFSETS: [(isize, isize); 9] = [
+        (-1, -1),
+        (-1, 0),
+        (-1, 1),
+        (0, -1),
+        (0, 0),
+        (0, 1),
+        (1, -1),
+        (1, 0),
+        (1, 1),
+    ];
+    let (width, height) = arr.dim();
+    let (dx, dy) = OFFSETS[in_idx];
+
+    // Bounds check
+    if dx < 0 && x == 0 {
+        return None;
+    }
+    if dx > 0 && x == width - 1 {
+        return None;
+    }
+    if dy < 0 && y == 0 {
+        return None;
+    }
+    if dy > 0 && y == height - 1 {
+        return None;
+    }
+
+    Some((
+        (x as isize + dx) as usize,
+        (y as isize + dy) as usize,
+    ))
 }
 
 impl PixelInterface for Environment {
@@ -49,4 +118,8 @@ impl PixelInterface for Cell {
     fn as_rgba(&self) -> egui::Color32 {
         egui::Color32::from_gray((self.dirs.iter().sum::<f32>() * 255.0).clamp(0.0, 255.0) as u8)
     }
+}
+
+fn Θ(in_idx: usize, out_idx: usize) -> f32 {
+    todo!()
 }

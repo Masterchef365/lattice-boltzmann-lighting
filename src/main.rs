@@ -1,4 +1,4 @@
-use egui::{CentralPanel, DragValue, Pos2, Rect, Scene};
+use egui::{CentralPanel, DragValue, Pos2, Rect, RichText, Scene};
 use egui_pixel_editor::{Brush, ImageEditor};
 use sim::Sim;
 mod sim;
@@ -142,6 +142,10 @@ impl eframe::App for BoltzmannApp {
                 ui.selectable_value(&mut self.edit_layer, EditLayer::Cell, "Cells");
                 ui.selectable_value(&mut self.edit_layer, EditLayer::Environment, "Environment");
             });
+
+            if ui.button(RichText::new("Step").size(20.)).clicked() {
+                self.sim.step();
+            }
 
             egui::Frame::canvas(ui.style()).show(ui, |ui| {
                 Scene::new()
