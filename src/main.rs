@@ -82,6 +82,7 @@ pub struct BoltzmannApp {
     pub env_editor: ImageEditor<sim::Environment>,
     pub edit_layer: EditLayer,
     pub n_step: usize,
+    pub env_value: sim::Environment,
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
@@ -127,6 +128,7 @@ impl BoltzmannApp {
             light_editor: ImageEditor::from_tile_size(tile_texture_width),
             env_editor: ImageEditor::from_tile_size(tile_texture_width),
             edit_layer: EditLayer::default(),
+            env_value: sim::Environment::Fog(1.0),
             //light_editor: ImageEditor::new(&cc.egui_ctx),
             //world_editor: ImageEditor::new(&cc.egui_ctx),
         }
@@ -152,6 +154,16 @@ impl eframe::App for BoltzmannApp {
                 ui.selectable_value(&mut self.edit_layer, EditLayer::Light, "Light");
                 ui.selectable_value(&mut self.edit_layer, EditLayer::Environment, "Environment");
             });
+
+            if self.edit_layer == EditLayer::Environment {
+                match &mut self.env_value {
+                    sim::Environment::Wall => {},
+                    sim::Environment::Fog(val) => {
+                        ui.add(DragValue::new(val).prefix("Scattering: ").speed(1e-2));
+                    },
+
+                }
+            }
 
             ui.horizontal(|ui| {
                 if ui.button(RichText::new("Step").size(20.)).clicked() {
@@ -193,7 +205,7 @@ impl eframe::App for BoltzmannApp {
                             self.env_editor.edit(
                                 ui,
                                 &mut self.sim.env,
-                                sim::Environment::Wall,
+                                self.env_value,
                                 Brush::default(),
                             );
                         }
