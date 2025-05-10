@@ -138,7 +138,7 @@ impl BoltzmannApp {
             cell_value: sim::Cell {
                 dirs: [0., 0., 0., 0., 1., 0., 0., 0., 0.],
             },
-            run: false,
+            run: true,
             brush_size: 0,
             //light_editor: ImageEditor::new(&cc.egui_ctx),
             //world_editor: ImageEditor::new(&cc.egui_ctx),
