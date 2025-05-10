@@ -28,7 +28,7 @@ impl Sim {
         let light_source = Array2::from_elem((width, height), Cell::default());
         let mut light = Array2::from_elem((width, height), Cell::default());
         let air = Environment {
-            scattering: 0.001,
+            scattering: 0.0,
             absorbtion: 0.0,
         };
         let mut env = Array2::from_elem((width, height), air);
