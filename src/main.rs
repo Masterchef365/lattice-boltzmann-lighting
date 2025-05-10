@@ -83,6 +83,7 @@ pub struct BoltzmannApp {
     pub edit_layer: EditLayer,
     pub n_step: usize,
     pub env_value: sim::Environment,
+    pub reset_env_value: sim::Environment,
     pub cell_value: sim::Cell,
     pub run: bool,
     pub brush_size: isize,
@@ -120,7 +121,11 @@ impl BoltzmannApp {
             .unwrap_or_default();
 
         let new_sim_dims@(w, h) = (200, 100);
-        let sim = Sim::new(w, h);
+        let reset_env_value = sim::Environment {
+            scattering: 1e-2,
+            absorbtion: 0.0,
+        };
+        let sim = Sim::new(w, h, reset_env_value);
 
         let tile_texture_width = 512;
 
@@ -138,6 +143,7 @@ impl BoltzmannApp {
                 scattering: 1.0,
                 absorbtion: 0.0,
             },
+            reset_env_value,
             cell_value: sim::Cell {
                 dirs: [1., 0., 0., 0., 0., 0., 0., 0., 0.],
             },
@@ -212,6 +218,7 @@ impl eframe::App for BoltzmannApp {
                 ui.strong("Reset settings");
                 ui.add(DragValue::new(&mut self.new_sim_dims.0).prefix("Width: "));
                 ui.add(DragValue::new(&mut self.new_sim_dims.1).prefix("Height: "));
+                ui.add(DragValue::new(&mut self.reset_env_value.scattering).prefix("Scattering: "));
             });
         });
 
@@ -239,7 +246,7 @@ impl eframe::App for BoltzmannApp {
                     .clicked()
                 {
                     let (w, h) = self.new_sim_dims;
-                    self.sim = Sim::new(w, h);
+                    self.sim = Sim::new(w, h, self.reset_env_value);
                     self.light_source_editor.force_image_update();
                     self.env_editor.force_image_update();
                     self.light_editor.force_image_update();
@@ -263,9 +270,9 @@ impl eframe::App for BoltzmannApp {
                     &mut self.scene_rect,
                     |ui| match self.edit_layer {
                         EditLayer::Light => {
+                            self.env_editor.draw(ui, &mut self.sim.env, Pos2::ZERO);
                             self.light_editor
                                 .edit(ui, &mut self.sim.light, self.cell_value, brush);
-                            self.env_editor.draw(ui, &mut self.sim.env, Pos2::ZERO);
                         }
                         EditLayer::LightSource => {
                             self.light_editor.draw(ui, &mut self.sim.light, Pos2::ZERO);

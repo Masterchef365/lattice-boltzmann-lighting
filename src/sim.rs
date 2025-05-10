@@ -24,13 +24,9 @@ pub struct Cell {
 ///
 /// Implemented here by Y.T.
 impl Sim {
-    pub fn new(width: usize, height: usize) -> Self {
+    pub fn new(width: usize, height: usize, air: Environment) -> Self {
         let light_source = Array2::from_elem((width, height), Cell::default());
         let mut light = Array2::from_elem((width, height), Cell::default());
-        let air = Environment {
-            scattering: 0.0,
-            absorbtion: 0.0,
-        };
         let mut env = Array2::from_elem((width, height), air);
         let wall = Environment {
             scattering: 1.0,
