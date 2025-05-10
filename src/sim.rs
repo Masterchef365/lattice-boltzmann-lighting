@@ -3,7 +3,7 @@ use ndarray::Array2;
 
 pub struct Sim {
     pub light: Array2<Cell>,
-    pub env: Array2<Environment>
+    pub env: Array2<Environment>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -12,8 +12,7 @@ pub enum Environment {
     Fog(f32),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[derive(Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Cell {
     pub dirs: [f32; 9],
 }
@@ -26,17 +25,18 @@ impl Sim {
     pub fn new(width: usize, height: usize) -> Self {
         let mut light = Array2::from_elem((width, height), Cell::default());
         let mut env = Array2::from_elem((width, height), Environment::Fog(1.0));
-        env.slice_mut(ndarray::s![.., height - 1]).fill(Environment::Wall);
-        env.slice_mut(ndarray::s![width - 1, ..]).fill(Environment::Wall);
+        env.slice_mut(ndarray::s![.., height - 1])
+            .fill(Environment::Wall);
+        env.slice_mut(ndarray::s![width - 1, ..])
+            .fill(Environment::Wall);
         env.slice_mut(ndarray::s![.., 0]).fill(Environment::Wall);
         env.slice_mut(ndarray::s![0, ..]).fill(Environment::Wall);
 
-        light.slice_mut(ndarray::s![50..=70, 50..=70]).fill(Cell { dirs: [1.0; 9] });
+        light
+            .slice_mut(ndarray::s![50..=70, 50..=70])
+            .fill(Cell { dirs: [1.0; 9] });
 
-        Self {
-            light,
-            env,
-        }
+        Self { light, env }
     }
 
     pub fn step(&mut self) {
@@ -46,7 +46,7 @@ impl Sim {
             let mut new_dense = [0_f32; 9];
             for in_idx in 0..9 {
                 for out_idx in 0..9 {
-                    new_dense[out_idx] += src.dirs[in_idx]*Θ(in_idx, out_idx);
+                    new_dense[out_idx] += src.dirs[in_idx] * Θ(in_idx, out_idx);
                 }
             }
 
@@ -70,7 +70,11 @@ impl Sim {
     }
 }
 
-fn compute_neighbor((x, y): (usize, usize), in_idx: usize, arr: &Array2<Cell>) -> Option<(usize, usize)> {
+fn compute_neighbor(
+    (x, y): (usize, usize),
+    in_idx: usize,
+    arr: &Array2<Cell>,
+) -> Option<(usize, usize)> {
     const OFFSETS: [(isize, isize); 9] = [
         (-1, -1),
         (-1, 0),
@@ -99,10 +103,7 @@ fn compute_neighbor((x, y): (usize, usize), in_idx: usize, arr: &Array2<Cell>) -
         return None;
     }
 
-    Some((
-        (x as isize + dx) as usize,
-        (y as isize + dy) as usize,
-    ))
+    Some(((x as isize + dx) as usize, (y as isize + dy) as usize))
 }
 
 impl PixelInterface for Environment {
@@ -121,5 +122,40 @@ impl PixelInterface for Cell {
 }
 
 fn Θ(in_idx: usize, out_idx: usize) -> f32 {
-    todo!()
+    let scattering_coeff = 0.0;
+    let absorbtion_coeff = 0.0;
+    let extinction_coeff = absorbtion_coeff + scattering_coeff;
+
+    const CENTER_IDX: usize = 4;
+    const IS_AXIAL: [bool; 9] = [
+        true, false, true, //.
+        false, false, false, //.
+        true, false, true, //.
+    ];
+
+    if in_idx == CENTER_IDX {
+        return if out_idx == CENTER_IDX {
+            0.0
+        } else {
+            absorbtion_coeff
+        };
+    } 
+
+    if IS_AXIAL[in_idx] {
+        if out_idx == CENTER_IDX {
+            1.0 / 8.0
+        } else if out_idx != in_idx {
+            scattering_coeff / 8.0
+        } else {
+            1.0 - extinction_coeff + scattering_coeff / 8.0
+        }
+    } else {
+        if out_idx == CENTER_IDX {
+            1.0 / 16.0
+        } else if out_idx != in_idx {
+            scattering_coeff / 16.0
+        } else {
+            1.0 - extinction_coeff + scattering_coeff / 16.0
+        }
+    }
 }
