@@ -943,6 +943,7 @@ dependencies = [
 [[package]]
 name = "egui-pixel-editor"
 version = "0.1.0"
+source = "git+https://github.com/Masterchef365/egui-pixel-editor.git?branch=main#ed7667b7e4fe369e78181e1e3fb205165c3f3616"
 dependencies = [
  "egui",
  "ndarray",
