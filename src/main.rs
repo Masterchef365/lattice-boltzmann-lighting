@@ -1,4 +1,4 @@
-use egui::{CentralPanel, DragValue, Pos2, Rect, RichText, Scene};
+use egui::{CentralPanel, DragValue, Pos2, Rect, RichText, Scene, SidePanel};
 use egui_pixel_editor::{Brush, ImageEditor};
 use sim::Sim;
 mod sim;
@@ -149,25 +149,22 @@ impl eframe::App for BoltzmannApp {
             ctx.request_repaint();
         }
 
-        CentralPanel::default().show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.label("Editing layer: ");
-                ui.selectable_value(
-                    &mut self.edit_layer,
-                    EditLayer::LightSource,
-                    "Light Sources",
-                );
-                ui.selectable_value(&mut self.edit_layer, EditLayer::Light, "Light");
-                ui.selectable_value(&mut self.edit_layer, EditLayer::Environment, "Environment");
-            });
+        SidePanel::left("cfg").show(ctx, |ui| {
+            ui.label("Editing layer: ");
+            ui.selectable_value(
+                &mut self.edit_layer,
+                EditLayer::LightSource,
+                "Light Sources",
+            );
+            ui.selectable_value(&mut self.edit_layer, EditLayer::Light, "Light");
+            ui.selectable_value(&mut self.edit_layer, EditLayer::Environment, "Environment");
 
             if self.edit_layer == EditLayer::Environment {
                 match &mut self.env_value {
-                    sim::Environment::Wall => {},
+                    sim::Environment::Wall => {}
                     sim::Environment::Fog(val) => {
                         ui.add(DragValue::new(val).prefix("Scattering: ").speed(1e-2));
-                    },
-
+                    }
                 }
             }
 
@@ -177,21 +174,17 @@ impl eframe::App for BoltzmannApp {
                     do_step = true;
                 }
                 ui.add(DragValue::new(&mut self.n_step));
-                let text = if self.run {
-                    "Pause ||"
-                } else {
-                    "Run >"
-                };
-                if ui.button(RichText::new(text).size(20.)).clicked() {
-                    self.run = !self.run;
-                }
-                if ui.button(RichText::new("Reset").size(20.)).clicked() {
-                    self.sim = Sim::new(200, 100);
-                    self.light_source_editor.force_image_update();
-                    self.env_editor.force_image_update();
-                    self.light_editor.force_image_update();
-                }
             });
+            let text = if self.run { "Pause ||" } else { "Run >" };
+            if ui.button(RichText::new(text).size(20.)).clicked() {
+                self.run = !self.run;
+            }
+            if ui.button(RichText::new("Reset").size(20.)).clicked() {
+                self.sim = Sim::new(200, 100);
+                self.light_source_editor.force_image_update();
+                self.env_editor.force_image_update();
+                self.light_editor.force_image_update();
+            }
 
             if do_step {
                 for _ in 0..self.n_step {
@@ -199,7 +192,9 @@ impl eframe::App for BoltzmannApp {
                 }
                 self.light_editor.force_image_update();
             }
+        });
 
+        CentralPanel::default().show(ctx, |ui| {
             egui::Frame::canvas(ui.style()).show(ui, |ui| {
                 Scene::new().zoom_range(0.1..=100.0).show(
                     ui,
