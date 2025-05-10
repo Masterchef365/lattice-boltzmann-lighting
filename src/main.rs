@@ -187,6 +187,7 @@ impl eframe::App for BoltzmannApp {
                 }
                 if ui.button(RichText::new("Reset").size(20.)).clicked() {
                     self.sim = Sim::new(200, 100);
+                    self.light_source_editor.force_image_update();
                 }
             });
 
