@@ -93,10 +93,10 @@ impl Sim {
                 let vr = vert_reflect_amnt[i];
                 let hr = horiz_reflect_amnt[i];
 
-                let transmit = 1.0 - vr / 2.0 - hr / 2.0;
+                let transmit = 1.0 - vr - hr;
                 let ret = vr * hr;
-                let horiz = hr * (1.0 - vr) / 2.0;
-                let vert = vr * (1.0 - hr) / 2.0;
+                let horiz = hr * (1.0 - vr);
+                let vert = vr * (1.0 - hr);
 
                 reflected[i] += transmit * new_dense[i];
                 reflected[horiz_reflect[i]] += horiz * new_dense[i];
