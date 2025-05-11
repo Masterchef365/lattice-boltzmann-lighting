@@ -87,13 +87,26 @@ impl Sim {
 
             // Reflective surfaces
             let mut reflected = [0_f32; 9];
-            for i in 0..9 {
-                let remain = 1.0 - vert_reflect_amnt[i] + horiz_reflect_amnt[i];
-                reflected[i] += remain * new_dense[i];
-                reflected[horiz_reflect[i]] += horiz_reflect_amnt[i] * new_dense[i];
-                reflected[vert_reflect[i]] += vert_reflect_amnt[i] * new_dense[i];
 
-                /*
+            // Sides
+            for i in 0..9 {
+                let vr = vert_reflect_amnt[i];
+                let hr = horiz_reflect_amnt[i];
+
+                let transmit = 1.0 - vr / 2.0 - hr / 2.0;
+                let ret = vr * hr;
+                let horiz = hr * (1.0 - vr) / 2.0;
+                let vert = vr * (1.0 - hr) / 2.0;
+
+                reflected[i] += transmit * new_dense[i];
+                reflected[horiz_reflect[i]] += horiz * new_dense[i];
+                reflected[vert_reflect[i]] += vert * new_dense[i];
+                reflected[vert_reflect[horiz_reflect[i]]] += ret * new_dense[i];
+            }
+
+            /*
+            // Corners
+            for i in [0, 2, 6, 8] {
                 let mut remain = 1.0;
                 if let Some(neigh) = compute_neighbor(coord, i, &self.env) {
                     let reflect = self.env[neigh].reflectance;
@@ -101,8 +114,8 @@ impl Sim {
                     remain -= reflect;
                 }
                 reflected[i] += remain * new_dense[i];
-                */
             }
+            */
 
             src.dirs = reflected;
         }
@@ -165,9 +178,10 @@ fn compute_neighbor<T>(
 
 impl PixelInterface for Environment {
     fn as_rgba(&self) -> egui::Color32 {
-            let scattering_only = Color32::TRANSPARENT.lerp_to_gamma(Color32::CYAN, self.scattering);
-            let scattering_and_absorbtion = Color32::RED.lerp_to_gamma(Color32::CYAN, self.scattering);
-            scattering_only.lerp_to_gamma(scattering_and_absorbtion, self.absorbtion)
+        let scattering = Color32::TRANSPARENT.lerp_to_gamma(Color32::YELLOW, self.scattering);
+        let absorbtion = Color32::TRANSPARENT.lerp_to_gamma(Color32::MAGENTA, self.absorbtion);
+        let reflectance = Color32::TRANSPARENT.lerp_to_gamma(Color32::CYAN, self.reflectance);
+        scattering + absorbtion + reflectance
     }
 }
 
