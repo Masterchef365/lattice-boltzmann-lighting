@@ -75,8 +75,8 @@ impl Sim {
             }
 
             let (x, y) = coord;
-            let down = self.env.get((x, y - 1)).unwrap_or(&Environment::default()).reflectance;
-            let up = self.env.get((x, y + 1)).unwrap_or(&Environment::default()).reflectance;
+            let down = self.env.get((x, y + 1)).unwrap_or(&Environment::default()).reflectance;
+            let up = self.env.get((x, y - 1)).unwrap_or(&Environment::default()).reflectance;
             let left = self.env.get((x - 1, y)).unwrap_or(&Environment::default()).reflectance;
             let right = self.env.get((x + 1, y)).unwrap_or(&Environment::default()).reflectance;
 
