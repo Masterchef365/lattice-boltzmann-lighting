@@ -202,6 +202,11 @@ impl eframe::App for BoltzmannApp {
                                 .prefix("Absorbtion: ")
                                 .speed(1e-2),
                         );
+                        ui.add(
+                            DragValue::new(&mut self.env_value.reflectance)
+                                .prefix("Reflectance: ")
+                                .speed(1e-2),
+                        );
                     }
                     EditLayer::Light | EditLayer::LightSource => {
                         egui::Grid::new("light").num_columns(3).show(ui, |ui| {

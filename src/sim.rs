@@ -8,13 +8,14 @@ pub struct Sim {
     pub env: Array2<Environment>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Environment {
     pub scattering: f32,
     pub absorbtion: f32,
     pub reflectance: f32,
 }
 
+const CENTER_IDX: usize = 4;
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Cell {
     pub dirs: [f32; 9],
@@ -64,9 +65,8 @@ impl Sim {
                     .for_each(|(l, src)| *l += src);
             });
 
-        // Distribute density locally
-        // according to the collision rules
-        for (src, env) in self.light.iter_mut().zip(&self.env) {
+        for ((coord, src), env) in self.light.indexed_iter_mut().zip(&self.env) {
+            // Distribute density locally
             let mut new_dense = [0_f32; 9];
             for in_idx in 0..9 {
                 for out_idx in 0..9 {
@@ -74,8 +74,39 @@ impl Sim {
                 }
             }
 
-            src.dirs = new_dense;
+            let (x, y) = coord;
+            let down = self.env.get((x, y - 1)).unwrap_or(&Environment::default()).reflectance;
+            let up = self.env.get((x, y + 1)).unwrap_or(&Environment::default()).reflectance;
+            let left = self.env.get((x - 1, y)).unwrap_or(&Environment::default()).reflectance;
+            let right = self.env.get((x + 1, y)).unwrap_or(&Environment::default()).reflectance;
+
+            let vert_reflect = [6, 7, 8, 3, 4, 5, 0, 1, 2];
+            let horiz_reflect = [2, 1, 0, 5, 4, 3, 8, 7, 6];
+            let vert_reflect_amnt = [up, up, up, 0.0, 0.0, 0.0, down, down, down];
+            let horiz_reflect_amnt = [left, 0.0, right, left, 0.0, right, left, 0.0, right];
+
+            // Reflective surfaces
+            let mut reflected = [0_f32; 9];
+            for i in 0..9 {
+                let remain = 1.0 - vert_reflect_amnt[i] + horiz_reflect_amnt[i];
+                reflected[i] += remain * new_dense[i];
+                reflected[horiz_reflect[i]] += horiz_reflect_amnt[i] * new_dense[i];
+                reflected[vert_reflect[i]] += vert_reflect_amnt[i] * new_dense[i];
+
+                /*
+                let mut remain = 1.0;
+                if let Some(neigh) = compute_neighbor(coord, i, &self.env) {
+                    let reflect = self.env[neigh].reflectance;
+                    reflected[8 - i] += reflect * new_dense[i];
+                    remain -= reflect;
+                }
+                reflected[i] += remain * new_dense[i];
+                */
+            }
+
+            src.dirs = reflected;
         }
+
 
         let mut dst = Array2::from_elem(self.light.dim(), Cell::default());
 
@@ -94,10 +125,10 @@ impl Sim {
     }
 }
 
-fn compute_neighbor(
+fn compute_neighbor<T>(
     (x, y): (usize, usize),
     in_idx: usize,
-    arr: &Array2<Cell>,
+    arr: &Array2<T>,
 ) -> Option<(usize, usize)> {
     const OFFSETS: [(isize, isize); 9] = [
         (-1, -1),
@@ -149,7 +180,6 @@ impl PixelInterface for Cell {
 fn Θ(in_idx: usize, out_idx: usize, env: &Environment) -> f32 {
     let extinction_coeff = env.absorbtion + env.scattering;
 
-    const CENTER_IDX: usize = 4;
     const IS_AXIAL: [bool; 9] = [
         true, false, true, //.
         false, false, false, //.
