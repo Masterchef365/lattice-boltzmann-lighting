@@ -124,6 +124,7 @@ impl BoltzmannApp {
         let reset_env_value = sim::Environment {
             scattering: 1e-2,
             absorbtion: 0.0,
+            reflectance: 0.0,
         };
         let sim = Sim::new(w, h, reset_env_value);
 
@@ -140,8 +141,9 @@ impl BoltzmannApp {
             env_editor: ImageEditor::from_tile_size(tile_texture_width),
             edit_layer: EditLayer::default(),
             env_value: sim::Environment {
-                scattering: 1.0,
+                scattering: 0.0,
                 absorbtion: 0.0,
+                reflectance: 1.0,
             },
             reset_env_value,
             cell_value: sim::Cell {

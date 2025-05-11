@@ -12,6 +12,7 @@ pub struct Sim {
 pub struct Environment {
     pub scattering: f32,
     pub absorbtion: f32,
+    pub reflectance: f32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
@@ -29,8 +30,9 @@ impl Sim {
         let mut light = Array2::from_elem((width, height), Cell::default());
         let mut env = Array2::from_elem((width, height), air);
         let wall = Environment {
-            scattering: 1.0,
+            scattering: 0.0,
             absorbtion: 0.0,
+            reflectance: 1.0,
         };
         env.slice_mut(ndarray::s![.., height - 1])
             .fill(wall);
