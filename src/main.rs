@@ -145,7 +145,7 @@ impl BoltzmannApp {
             },
             reset_env_value,
             cell_value: sim::Cell {
-                dirs: [1., 0., 0., 0., 0., 0., 0., 0., 0.],
+                dirs: [0xff, 0, 0, 0, 0, 0, 0, 0, 0],
             },
             run: true,
             brush_size: 0,

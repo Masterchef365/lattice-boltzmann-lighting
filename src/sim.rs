@@ -16,7 +16,7 @@ pub struct Environment {
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Cell {
-    pub dirs: [f32; 9],
+    pub dirs: [i32; 9],
 }
 
 /// Lattice-Boltzmann Lighting
@@ -41,7 +41,7 @@ impl Sim {
 
         light
             .slice_mut(ndarray::s![50..=70, 50..=70])
-            .fill(Cell { dirs: [1.0; 9] });
+            .fill(Cell { dirs: [0xff; 9] });
 
         Self {
             light,
@@ -68,11 +68,11 @@ impl Sim {
             let mut new_dense = [0_f32; 9];
             for in_idx in 0..9 {
                 for out_idx in 0..9 {
-                    new_dense[out_idx] += src.dirs[in_idx] * Θ(in_idx, out_idx, env);
+                    new_dense[out_idx] += src.dirs[in_idx] as f32 * Θ(in_idx, out_idx, env);
                 }
             }
 
-            src.dirs = new_dense;
+            src.dirs = new_dense.map(|x| x as i32);
         }
 
         let mut dst = Array2::from_elem(self.light.dim(), Cell::default());
@@ -140,7 +140,7 @@ impl PixelInterface for Environment {
 
 impl PixelInterface for Cell {
     fn as_rgba(&self) -> egui::Color32 {
-        egui::Color32::from_gray((self.dirs.iter().sum::<f32>() * 255.0).clamp(0.0, 255.0) as u8).additive()
+        egui::Color32::from_gray(self.dirs.iter().sum::<i32>().clamp(0, 255) as u8).additive()
     }
 }
 
