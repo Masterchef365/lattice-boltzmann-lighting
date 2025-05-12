@@ -88,7 +88,7 @@ impl Sim {
             // Reflective surfaces
             let mut reflected = [0_f32; 9];
             for i in 0..9 {
-                let remain = 1.0 - vert_reflect_amnt[i] + horiz_reflect_amnt[i];
+                let remain = 1.0 - vert_reflect_amnt[i] - horiz_reflect_amnt[i];
                 reflected[i] += remain * new_dense[i];
                 reflected[horiz_reflect[i]] += horiz_reflect_amnt[i] * new_dense[i];
                 reflected[vert_reflect[i]] += vert_reflect_amnt[i] * new_dense[i];
