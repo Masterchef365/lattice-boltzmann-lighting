@@ -33,16 +33,14 @@ impl Sim {
             scattering: 1.0,
             absorbtion: 0.0,
         };
-        env.slice_mut(ndarray::s![.., height - 1])
-            .fill(wall);
-        env.slice_mut(ndarray::s![width - 1, ..])
-            .fill(wall);
+        env.slice_mut(ndarray::s![.., height - 1]).fill(wall);
+        env.slice_mut(ndarray::s![width - 1, ..]).fill(wall);
         env.slice_mut(ndarray::s![.., 0]).fill(wall);
         env.slice_mut(ndarray::s![0, ..]).fill(wall);
 
-        light
-            .slice_mut(ndarray::s![50..=70, 50..=70])
-            .fill(Cell { dirs: [Vec3::ONE; 9] });
+        light.slice_mut(ndarray::s![50..=70, 50..=70]).fill(Cell {
+            dirs: [Vec3::ONE; 9],
+        });
 
         Self {
             light,
@@ -53,19 +51,16 @@ impl Sim {
 
     pub fn step(&mut self) {
         // Add light sources
-        self.light
-            .iter_mut()
-            .zip(&self.light_source)
-            .for_each(|(l, src)| {
-                l.dirs
-                    .iter_mut()
-                    .zip(src.dirs)
-                    .for_each(|(l, src)| *l += src);
-            });
+        self.light.zip_mut_with(&self.light_source, |l, src| {
+            l.dirs
+                .iter_mut()
+                .zip(src.dirs)
+                .for_each(|(l, src)| *l += src);
+        });
 
         // Distribute density locally
         // according to the collision rules
-        for (src, env) in self.light.iter_mut().zip(&self.env) {
+        self.light.zip_mut_with(&self.env, |src, env| {
             let mut new_dense = [Vec3::ZERO; 9];
             for in_idx in 0..9 {
                 for out_idx in 0..9 {
@@ -74,7 +69,7 @@ impl Sim {
             }
 
             src.dirs = new_dense;
-        }
+        });
 
         let mut dst = Array2::from_elem(self.light.dim(), Cell::default());
 
@@ -102,11 +97,9 @@ fn compute_neighbor(
         (-1, -1),
         (0, -1),
         (1, -1),
-
         (-1, 0),
         (0, 0),
         (1, 0),
-
         (-1, 1),
         (0, 1),
         (1, 1),
@@ -133,16 +126,19 @@ fn compute_neighbor(
 
 impl PixelInterface for Environment {
     fn as_rgba(&self) -> egui::Color32 {
-            let scattering_only = Color32::TRANSPARENT.lerp_to_gamma(Color32::CYAN, self.scattering);
-            let scattering_and_absorbtion = Color32::RED.lerp_to_gamma(Color32::CYAN, self.scattering);
-            scattering_only.lerp_to_gamma(scattering_and_absorbtion, self.absorbtion)
+        let scattering_only = Color32::TRANSPARENT.lerp_to_gamma(Color32::CYAN, self.scattering);
+        let scattering_and_absorbtion = Color32::RED.lerp_to_gamma(Color32::CYAN, self.scattering);
+        scattering_only.lerp_to_gamma(scattering_and_absorbtion, self.absorbtion)
     }
 }
 
 impl PixelInterface for Cell {
     fn as_rgba(&self) -> egui::Color32 {
         let sum = self.dirs.iter().sum::<Vec3>();
-        let [r, g, b] = (sum * 255.0).clamp(Vec3::splat(0.0), Vec3::splat(255.0)).to_array().map(|x| x as u8);
+        let [r, g, b] = (sum * 255.0)
+            .clamp(Vec3::splat(0.0), Vec3::splat(255.0))
+            .to_array()
+            .map(|x| x as u8);
         egui::Color32::from_rgb(r, g, b).additive()
     }
 }
