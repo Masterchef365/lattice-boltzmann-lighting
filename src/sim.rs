@@ -159,9 +159,9 @@ fn compute_neighbor<T>(
 
 impl PixelInterface for Environment {
     fn as_rgba(&self) -> egui::Color32 {
-        let scattering_only = Color32::TRANSPARENT.lerp_to_gamma(Color32::CYAN, self.scattering);
-        let scattering_and_absorbtion = Color32::RED.lerp_to_gamma(Color32::CYAN, self.scattering);
-        scattering_only.lerp_to_gamma(scattering_and_absorbtion, self.absorbtion)
+        Color32::CYAN.linear_multiply(self.scattering)
+        + Color32::YELLOW.linear_multiply(self.absorbtion)
+        + Color32::MAGENTA.linear_multiply(self.reflectance)
     }
 }
 
