@@ -1,5 +1,8 @@
-use egui::{CentralPanel, DragValue, Pos2, Rect, RichText, Scene, SidePanel, TopBottomPanel};
+use egui::{
+    CentralPanel, Color32, DragValue, Pos2, Rect, RichText, Scene, SidePanel, TopBottomPanel,
+};
 use egui_pixel_editor::{Brush, ImageEditor};
+use glam::Vec3;
 use sim::Sim;
 mod sim;
 
@@ -120,7 +123,7 @@ impl BoltzmannApp {
             .and_then(|storage| eframe::get_value(storage, eframe::APP_KEY))
             .unwrap_or_default();
 
-        let new_sim_dims@(w, h) = (200, 100);
+        let new_sim_dims @ (w, h) = (200, 100);
         let reset_env_value = sim::Environment {
             scattering: 1e-2,
             absorbtion: 0.0,
@@ -147,7 +150,17 @@ impl BoltzmannApp {
             },
             reset_env_value,
             cell_value: sim::Cell {
-                dirs: [1., 0., 0., 0., 0., 0., 0., 0., 0.],
+                dirs: [
+                    Vec3::new(0.5, 0., 1.),
+                    Vec3::ZERO,
+                    Vec3::ZERO,
+                    Vec3::ZERO,
+                    Vec3::ZERO,
+                    Vec3::ZERO,
+                    Vec3::ZERO,
+                    Vec3::ZERO,
+                    Vec3::ZERO,
+                ],
             },
             run: true,
             brush_size: 0,
@@ -212,7 +225,10 @@ impl eframe::App for BoltzmannApp {
                         egui::Grid::new("light").num_columns(3).show(ui, |ui| {
                             for row in self.cell_value.dirs.chunks_exact_mut(3) {
                                 for value in row.iter_mut() {
-                                    ui.add(DragValue::new(value));
+                                    //ui.add(DragValue::new(value));
+                                    let mut v = value.to_array();
+                                    ui.color_edit_button_rgb(&mut v);
+                                    [value.x, value.y, value.z] = v;
                                 }
                                 ui.end_row();
                             }
@@ -232,7 +248,7 @@ impl eframe::App for BoltzmannApp {
         TopBottomPanel::bottom("Time").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 let mut do_step = self.run;
-                
+
                 let text = if self.run { "Pause ⏸" } else { "Run ▶" };
                 if ui.button(RichText::new(text).size(20.)).clicked() {
                     self.run = !self.run;

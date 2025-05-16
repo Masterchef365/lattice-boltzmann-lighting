@@ -1,5 +1,6 @@
 use egui::Color32;
 use egui_pixel_editor::image::PixelInterface;
+use glam::Vec3;
 use ndarray::Array2;
 
 pub struct Sim {
@@ -18,7 +19,7 @@ pub struct Environment {
 const CENTER_IDX: usize = 4;
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Cell {
-    pub dirs: [f32; 9],
+    pub dirs: [Vec3; 9],
 }
 
 /// Lattice-Boltzmann Lighting
@@ -35,16 +36,14 @@ impl Sim {
             absorbtion: 0.0,
             reflectance: 1.0,
         };
-        env.slice_mut(ndarray::s![.., height - 1])
-            .fill(wall);
-        env.slice_mut(ndarray::s![width - 1, ..])
-            .fill(wall);
+        env.slice_mut(ndarray::s![.., height - 1]).fill(wall);
+        env.slice_mut(ndarray::s![width - 1, ..]).fill(wall);
         env.slice_mut(ndarray::s![.., 0]).fill(wall);
         env.slice_mut(ndarray::s![0, ..]).fill(wall);
 
-        light
-            .slice_mut(ndarray::s![50..=70, 50..=70])
-            .fill(Cell { dirs: [1.0; 9] });
+        light.slice_mut(ndarray::s![50..=70, 50..=70]).fill(Cell {
+            dirs: [Vec3::ONE; 9],
+        });
 
         Self {
             light,
@@ -55,19 +54,16 @@ impl Sim {
 
     pub fn step(&mut self) {
         // Add light sources
-        self.light
-            .iter_mut()
-            .zip(&self.light_source)
-            .for_each(|(l, src)| {
-                l.dirs
-                    .iter_mut()
-                    .zip(src.dirs)
-                    .for_each(|(l, src)| *l += src);
-            });
+        self.light.zip_mut_with(&self.light_source, |l, src| {
+            l.dirs
+                .iter_mut()
+                .zip(src.dirs)
+                .for_each(|(l, src)| *l += src);
+        });
 
         for ((coord, src), env) in self.light.indexed_iter_mut().zip(&self.env) {
             // Distribute density locally
-            let mut new_dense = [0_f32; 9];
+            let mut new_dense = [Vec3::ZERO; 9];
             for in_idx in 0..9 {
                 for out_idx in 0..9 {
                     new_dense[out_idx] += src.dirs[in_idx] * Θ(in_idx, out_idx, env);
@@ -86,7 +82,7 @@ impl Sim {
             let horiz_reflect_amnt = [left, 0.0, right, left, 0.0, right, left, 0.0, right];
 
             // Reflective surfaces
-            let mut reflected = [0_f32; 9];
+            let mut reflected = [Vec3::ZERO; 9];
             for i in 0..9 {
                 let remain = 1.0 - vert_reflect_amnt[i].max(horiz_reflect_amnt[i]);
                 let max_reflected = (1.0 - remain) / (vert_reflect_amnt[i] + horiz_reflect_amnt[i]).max(1.0);
@@ -107,7 +103,6 @@ impl Sim {
 
             src.dirs = reflected;
         }
-
 
         let mut dst = Array2::from_elem(self.light.dim(), Cell::default());
 
@@ -135,11 +130,9 @@ fn compute_neighbor<T>(
         (-1, -1),
         (0, -1),
         (1, -1),
-
         (-1, 0),
         (0, 0),
         (1, 0),
-
         (-1, 1),
         (0, 1),
         (1, 1),
@@ -166,15 +159,20 @@ fn compute_neighbor<T>(
 
 impl PixelInterface for Environment {
     fn as_rgba(&self) -> egui::Color32 {
-            let scattering_only = Color32::TRANSPARENT.lerp_to_gamma(Color32::CYAN, self.scattering);
-            let scattering_and_absorbtion = Color32::RED.lerp_to_gamma(Color32::CYAN, self.scattering);
-            scattering_only.lerp_to_gamma(scattering_and_absorbtion, self.absorbtion)
+        let scattering_only = Color32::TRANSPARENT.lerp_to_gamma(Color32::CYAN, self.scattering);
+        let scattering_and_absorbtion = Color32::RED.lerp_to_gamma(Color32::CYAN, self.scattering);
+        scattering_only.lerp_to_gamma(scattering_and_absorbtion, self.absorbtion)
     }
 }
 
 impl PixelInterface for Cell {
     fn as_rgba(&self) -> egui::Color32 {
-        egui::Color32::from_gray((self.dirs.iter().sum::<f32>() * 255.0).clamp(0.0, 255.0) as u8).additive()
+        let sum = self.dirs.iter().sum::<Vec3>();
+        let [r, g, b] = (sum * 255.0)
+            .clamp(Vec3::splat(0.0), Vec3::splat(255.0))
+            .to_array()
+            .map(|x| x as u8);
+        egui::Color32::from_rgb(r, g, b).additive()
     }
 }
 
