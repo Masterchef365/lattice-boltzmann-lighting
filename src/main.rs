@@ -2,7 +2,7 @@ use egui::{
     CentralPanel, Color32, DragValue, Pos2, Rect, RichText, Scene, SidePanel, TopBottomPanel,
 };
 use egui_pixel_editor::{Brush, ImageEditor};
-use glam::Vec3;
+use glam::{IVec3, Vec3};
 use sim::Sim;
 mod sim;
 
@@ -125,9 +125,9 @@ impl BoltzmannApp {
 
         let new_sim_dims @ (w, h) = (200, 100);
         let reset_env_value = sim::Environment {
-            scattering: 1e-2,
-            absorbtion: 0.0,
-            reflectance: 0.0,
+            scattering: 1,
+            absorbtion: 0,
+            reflectance: 0,
         };
         let sim = Sim::new(w, h, reset_env_value);
 
@@ -144,22 +144,22 @@ impl BoltzmannApp {
             env_editor: ImageEditor::from_tile_size(tile_texture_width),
             edit_layer: EditLayer::default(),
             env_value: sim::Environment {
-                scattering: 0.0,
-                absorbtion: 0.0,
-                reflectance: 1.0,
+                scattering: 0,
+                absorbtion: 0,
+                reflectance: 1,
             },
             reset_env_value,
             cell_value: sim::Cell {
                 dirs: [
-                    Vec3::new(0.5, 0., 1.),
-                    Vec3::ZERO,
-                    Vec3::ZERO,
-                    Vec3::ZERO,
-                    Vec3::ZERO,
-                    Vec3::ZERO,
-                    Vec3::ZERO,
-                    Vec3::ZERO,
-                    Vec3::ZERO,
+                    IVec3::new(128, 0, 255),
+                    IVec3::ZERO,
+                    IVec3::ZERO,
+                    IVec3::ZERO,
+                    IVec3::ZERO,
+                    IVec3::ZERO,
+                    IVec3::ZERO,
+                    IVec3::ZERO,
+                    IVec3::ZERO,
                 ],
             },
             run: true,
@@ -226,9 +226,9 @@ impl eframe::App for BoltzmannApp {
                             for row in self.cell_value.dirs.chunks_exact_mut(3) {
                                 for value in row.iter_mut() {
                                     //ui.add(DragValue::new(value));
-                                    let mut v = value.to_array();
-                                    ui.color_edit_button_rgb(&mut v);
-                                    [value.x, value.y, value.z] = v;
+                                    let mut v = value.to_array().map(|x| x as u8);
+                                    ui.color_edit_button_srgb(&mut v);
+                                    *value = IVec3::from_array(v.map(|x| x as i32));
                                 }
                                 ui.end_row();
                             }

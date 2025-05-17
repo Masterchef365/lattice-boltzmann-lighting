@@ -1,6 +1,6 @@
 use egui::Color32;
 use egui_pixel_editor::image::PixelInterface;
-use glam::Vec3;
+use glam::IVec3;
 use ndarray::Array2;
 
 pub struct Sim {
@@ -11,16 +11,24 @@ pub struct Sim {
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Environment {
-    pub scattering: f32,
-    pub absorbtion: f32,
-    pub reflectance: f32,
+    pub scattering: i32,
+    pub absorbtion: i32,
+    pub reflectance: i32,
 }
 
 const CENTER_IDX: usize = 4;
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Cell {
-    pub dirs: [Vec3; 9],
+    pub dirs: [IVec3; 9],
 }
+
+/// Fixed-point scaling built into the algorithm (don't change this without 
+/// also changing the algorithm!)
+const DEFAULT_SCALING: i32 = 16;
+/// Manually changed scaling factor
+const SCALING_FACTOR: i32 = 256;
+/// Fixed-point scaling
+const SCALING: i32 = SCALING_FACTOR * DEFAULT_SCALING;
 
 /// Lattice-Boltzmann Lighting
 /// Robert Geist, Karl Rasche, James Westall and Robert Schalkoff
@@ -32,9 +40,9 @@ impl Sim {
         let mut light = Array2::from_elem((width, height), Cell::default());
         let mut env = Array2::from_elem((width, height), air);
         let wall = Environment {
-            scattering: 0.0,
-            absorbtion: 0.0,
-            reflectance: 1.0,
+            scattering: 0,
+            absorbtion: 0,
+            reflectance: 1,
         };
         env.slice_mut(ndarray::s![.., height - 1]).fill(wall);
         env.slice_mut(ndarray::s![width - 1, ..]).fill(wall);
@@ -42,7 +50,7 @@ impl Sim {
         env.slice_mut(ndarray::s![0, ..]).fill(wall);
 
         light.slice_mut(ndarray::s![50..=70, 50..=70]).fill(Cell {
-            dirs: [Vec3::ONE; 9],
+            dirs: [IVec3::ONE; 9],
         });
 
         Self {
@@ -63,29 +71,30 @@ impl Sim {
 
         for ((coord, src), env) in self.light.indexed_iter_mut().zip(&self.env) {
             // Distribute density locally
-            let mut new_dense = [Vec3::ZERO; 9];
+            let mut new_dense = [IVec3::ZERO; 9];
             for in_idx in 0..9 {
                 for out_idx in 0..9 {
                     new_dense[out_idx] += src.dirs[in_idx] * Θ(in_idx, out_idx, env);
                 }
             }
+            new_dense.iter_mut().for_each(|x| *x /= SCALING);
 
             let (x, y) = coord;
             let down = self.env.get((x, y + 1)).unwrap_or(&Environment::default()).reflectance;
-            let up = self.env.get((x, y - 1)).unwrap_or(&Environment::default()).reflectance;
-            let left = self.env.get((x - 1, y)).unwrap_or(&Environment::default()).reflectance;
+            let up = y.checked_sub(1).and_then(|y| self.env.get((x, y))).unwrap_or(&Environment::default()).reflectance;
+            let left = x.checked_sub(1).and_then(|x| self.env.get((x, y))).unwrap_or(&Environment::default()).reflectance;
             let right = self.env.get((x + 1, y)).unwrap_or(&Environment::default()).reflectance;
 
             let vert_reflect = [6, 7, 8, 3, 4, 5, 0, 1, 2];
             let horiz_reflect = [2, 1, 0, 5, 4, 3, 8, 7, 6];
-            let vert_reflect_amnt = [up, up, up, 0.0, 0.0, 0.0, down, down, down];
-            let horiz_reflect_amnt = [left, 0.0, right, left, 0.0, right, left, 0.0, right];
+            let vert_reflect_amnt = [up, up, up, 0, 0, 0, down, down, down];
+            let horiz_reflect_amnt = [left, 0, right, left, 0, right, left, 0, right];
 
             // Reflective surfaces
-            let mut reflected = [Vec3::ZERO; 9];
+            let mut reflected = [IVec3::ZERO; 9];
             for i in 0..9 {
-                let remain = 1.0 - vert_reflect_amnt[i].max(horiz_reflect_amnt[i]);
-                let max_reflected = (1.0 - remain) / (vert_reflect_amnt[i] + horiz_reflect_amnt[i]).max(1.0);
+                let remain = 1 - vert_reflect_amnt[i].max(horiz_reflect_amnt[i]);
+                let max_reflected = (1 - remain) / (vert_reflect_amnt[i] + horiz_reflect_amnt[i]).max(1);
                 reflected[i] += remain * new_dense[i];
                 reflected[horiz_reflect[i]] += max_reflected * horiz_reflect_amnt[i] * new_dense[i];
                 reflected[vert_reflect[i]] += max_reflected * vert_reflect_amnt[i] * new_dense[i];
@@ -159,7 +168,7 @@ fn compute_neighbor<T>(
 
 impl PixelInterface for Environment {
     fn as_rgba(&self) -> egui::Color32 {
-        Color32::GRAY.linear_multiply(self.absorbtion + self.reflectance)
+        Color32::GRAY.linear_multiply((self.absorbtion as f32 + self.reflectance as f32) / 255.0)
         //Color32::CYAN.linear_multiply(self.scattering)
         //+ Color32::YELLOW.linear_multiply(self.absorbtion)
         //+ Color32::MAGENTA.linear_multiply(self.reflectance)
@@ -168,16 +177,13 @@ impl PixelInterface for Environment {
 
 impl PixelInterface for Cell {
     fn as_rgba(&self) -> egui::Color32 {
-        let sum = self.dirs.iter().sum::<Vec3>();
-        let [r, g, b] = (sum * 255.0)
-            .clamp(Vec3::splat(0.0), Vec3::splat(255.0))
-            .to_array()
-            .map(|x| x as u8);
+        let sum = self.dirs.iter().sum::<IVec3>();
+        let [r, g, b] = sum.to_array().map(|x| x.clamp(u8::MIN as _, u8::MAX as _) as u8);
         egui::Color32::from_rgb(r, g, b).additive()
     }
 }
 
-fn Θ(in_idx: usize, out_idx: usize, env: &Environment) -> f32 {
+fn Θ(in_idx: usize, out_idx: usize, env: &Environment) -> i32 {
     let extinction_coeff = env.absorbtion + env.scattering;
 
     const IS_AXIAL: [bool; 9] = [
@@ -188,27 +194,27 @@ fn Θ(in_idx: usize, out_idx: usize, env: &Environment) -> f32 {
 
     if in_idx == CENTER_IDX {
         return if out_idx == CENTER_IDX {
-            0.0
+            0
         } else {
-            env.absorbtion
+            16 * env.absorbtion
         };
     }
 
     if IS_AXIAL[in_idx] {
         if out_idx == CENTER_IDX {
-            1.0 / 8.0
+            2 * SCALING_FACTOR
         } else if out_idx != in_idx {
-            env.scattering / 8.0
+            2 * env.scattering
         } else {
-            1.0 - extinction_coeff + env.scattering / 8.0
+            16 * SCALING_FACTOR - extinction_coeff * 16 + env.scattering * 2
         }
     } else {
         if out_idx == CENTER_IDX {
-            1.0 / 16.0
+            1 * SCALING_FACTOR
         } else if out_idx != in_idx {
-            env.scattering / 16.0
+            env.scattering
         } else {
-            1.0 - extinction_coeff + env.scattering / 16.0
+            16 * SCALING_FACTOR - extinction_coeff * 16 + env.scattering
         }
     }
 }
