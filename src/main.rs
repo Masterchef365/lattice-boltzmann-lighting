@@ -91,6 +91,7 @@ pub struct BoltzmannApp {
     pub run: bool,
     pub brush_size: isize,
     pub new_sim_dims: (usize, usize),
+    pub brush_mult: i32,
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
@@ -134,6 +135,7 @@ impl BoltzmannApp {
         let tile_texture_width = 512;
 
         Self {
+            brush_mult: 1,
             new_sim_dims,
             n_step: 1,
             save_data,
@@ -197,6 +199,8 @@ impl eframe::App for BoltzmannApp {
 
             ui.group(|ui| {
                 ui.strong("Brush");
+
+
                 ui.add(
                     DragValue::new(&mut self.brush_size)
                         .prefix("Brush size: ")
@@ -221,7 +225,14 @@ impl eframe::App for BoltzmannApp {
                                 .speed(1e-2),
                         );
                     }
+
                     EditLayer::Light | EditLayer::LightSource => {
+                        ui.add(
+                            DragValue::new(&mut self.brush_mult)
+                                .prefix("Brush multiplier: ")
+                                .range(0..=i32::MAX),
+                        );
+
                         egui::Grid::new("light").num_columns(3).show(ui, |ui| {
                             for row in self.cell_value.dirs.chunks_exact_mut(3) {
                                 for value in row.iter_mut() {
@@ -285,6 +296,8 @@ impl eframe::App for BoltzmannApp {
         });
 
         let brush = Brush::Rectangle(self.brush_size, self.brush_size);
+        let mut cell_value = self.cell_value;
+        cell_value.dirs.iter_mut().for_each(|d| *d *= self.brush_mult);
 
         CentralPanel::default().show(ctx, |ui| {
             egui::Frame::canvas(ui.style()).show(ui, |ui| {
@@ -295,14 +308,14 @@ impl eframe::App for BoltzmannApp {
                         EditLayer::Light => {
                             self.env_editor.draw(ui, &mut self.sim.env, Pos2::ZERO);
                             self.light_editor
-                                .edit(ui, &mut self.sim.light, self.cell_value, brush);
+                                .edit(ui, &mut self.sim.light, cell_value, brush);
                         }
                         EditLayer::LightSource => {
                             self.light_editor.draw(ui, &mut self.sim.light, Pos2::ZERO);
                             self.light_source_editor.edit(
                                 ui,
                                 &mut self.sim.light_source,
-                                self.cell_value,
+                                cell_value,
                                 brush,
                             );
                             self.env_editor.draw(ui, &mut self.sim.env, Pos2::ZERO);

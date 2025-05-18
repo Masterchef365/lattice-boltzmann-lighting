@@ -168,7 +168,7 @@ fn compute_neighbor<T>(
 
 impl PixelInterface for Environment {
     fn as_rgba(&self) -> egui::Color32 {
-        Color32::GRAY.linear_multiply((self.absorbtion as f32 + self.reflectance as f32) / 255.0)
+        Color32::GRAY.linear_multiply(self.absorbtion as f32 + self.reflectance as f32)
         //Color32::CYAN.linear_multiply(self.scattering)
         //+ Color32::YELLOW.linear_multiply(self.absorbtion)
         //+ Color32::MAGENTA.linear_multiply(self.reflectance)
